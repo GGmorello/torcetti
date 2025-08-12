@@ -1,4 +1,6 @@
+from typing import Literal
 import numpy as np
+from torcetti.core import tensor
 from torcetti.core.tensor import Tensor
 
 def softmax(input, dim=-1):
@@ -404,6 +406,19 @@ def layer_norm(x: Tensor, normalized_shape, weight=None, bias=None, eps: float =
 
     return normalized
 
+def linear(input, weight, bias=None):
+
+    original_shape = input.shape
+    in_features, out_features = weight.shape
+
+    x_2d = input.reshape(-1, in_features)
+
+    out_2d = x_2d @ weight
+    if bias is not None:
+        out_2d = out_2d + bias
+
+    out = out_2d.reshape(*original_shape[:-1], out_features)
+    return out
 
 
 def scaled_dot_product_attention(q: Tensor,
@@ -414,12 +429,21 @@ def scaled_dot_product_attention(q: Tensor,
                                  dropout_p: float = 0.0,
                                  attn_mask=None,
                                  key_padding_mask=None,
-                                 training: bool = True):
+                                 training: bool = True,
+                                 qk_norm: Literal["l2", "rms"] = None):
     """Computes scaled dot-product attention using vectorized operations."""
     _, _, d_k = q.shape
     scale = np.sqrt(float(d_k))
 
     # (B*H, L_q, D) @ (B*H, D, L_k) -> (B*H, L_q, L_k)
+    eps = 1e-6
+    if qk_norm == "l2":
+        q = q / ((q**2).sum(dim=-1, keepdim=True).sqrt() + eps)
+        k = k / ((k**2).sum(dim=-1, keepdim=True).sqrt() + eps)
+    if qk_norm == "rms":
+        q = q / ((q**2).mean(dim=-1, keepdim=True) + eps).sqrt()
+        k = k / ((k**2).mean(dim=-1, keepdim=True) + eps).sqrt()
+
     attn_scores = (q @ k.permute(0, 2, 1)) / scale
 
     if attn_mask is not None:
@@ -445,19 +469,7 @@ def scaled_dot_product_attention(q: Tensor,
     output = attn_weights @ v
 
     return output, attn_weights
-def linear(input, weight, bias=None):
 
-    original_shape = input.shape
-    in_features, out_features = weight.shape
-
-    x_2d = input.reshape(-1, in_features)
-
-    out_2d = x_2d @ weight
-    if bias is not None:
-        out_2d = out_2d + bias
-
-    out = out_2d.reshape(*original_shape[:-1], out_features)
-    return out
 def multi_head_attention(query: Tensor,
                          key:   Tensor,
                          value: Tensor,
@@ -470,7 +482,8 @@ def multi_head_attention(query: Tensor,
                          attn_mask=None,
                          key_padding_mask=None,
                          batch_first: bool = False,
-                         training: bool = True):
+                         training: bool = True,
+                         qk_norm: Literal["l2", "rms"] = None):
 
     if num_kv_heads is None:
         num_kv_heads = num_heads
@@ -537,6 +550,7 @@ def multi_head_attention(query: Tensor,
         attn_mask=attn_mask,
         key_padding_mask=key_padding_mask,
         training=training,
+        qk_norm = qk_norm
     )
 
     attn_out = attn_out_flat.reshape(B, H, L_q, D)

@@ -12,7 +12,8 @@ class MultiheadAttention(Module):
                  num_kv_heads: int = None,
                  dropout: float = 0.0,
                  bias: bool = True,
-                 batch_first: bool = False):
+                 batch_first: bool = False,
+                 qk_norm = None):
         super().__init__()
 
         if embed_dim % num_heads != 0:
@@ -29,6 +30,8 @@ class MultiheadAttention(Module):
         self.num_kv_heads = num_kv_heads
         self.dropout = float(dropout)
         self.batch_first = bool(batch_first)
+        self.qk_norm = qk_norm
+
         self.head_dim = embed_dim // num_heads
         self.kv_dim = num_kv_heads * self.head_dim
 
@@ -61,6 +64,7 @@ class MultiheadAttention(Module):
             key_padding_mask=key_padding_mask,
             batch_first=self.batch_first,
             training=self.training,
+            qk_norm = self.qk_norm
         )
         
     @property
