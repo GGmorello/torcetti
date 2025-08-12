@@ -6,6 +6,7 @@ import torcetti
 
 from examples.GPT.hf_compat import HFGPT
 from examples.GPT.gpt_model import GPT
+from examples.GPT.causal_self_attention import KVCache
 from examples.GPT.bpe import BPETokenizer
 
 from transformers import GPT2Tokenizer, GPT2LMHeadModel
@@ -23,11 +24,23 @@ else:
 model.eval()
 
 def sample(model, x, max_new_tokens=20, do_sample=True, top_k=40):
+    B, L = x.shape
+    past_kvs = [
+        KVCache(
+            k=torcetti.zeros((B, L + max_new_tokens, model.embed_dim)),
+            v=torcetti.zeros((B, L + max_new_tokens, model.embed_dim)),
+            used=0
+        ) for _ in range(model.num_layers)
+    ]
+    
     for i in range(max_new_tokens):
-        logits = model(x)
+        if i == 0:
+            logits, past_kvs = model(x, past_kvs=past_kvs, use_cache=True)
+        else:
+            logits, past_kvs = model(x[:, -1:], past_kvs=past_kvs, use_cache=True)
         logits = logits[:, -1, :]
         if do_sample:
-            probs = torcetti.nn.functional.softmax(logits, axis=-1)
+            probs = torcetti.nn.functional.softmax(logits, dim=-1)
             
             if top_k > 0 and top_k < probs.shape[-1]:
                 top_k_probs, top_k_indices = torcetti.topk(probs, k=top_k, dim=-1)
@@ -39,12 +52,12 @@ def sample(model, x, max_new_tokens=20, do_sample=True, top_k=40):
                         mask.data[b, top_k_indices.data[b, k]] = 1
                 
                 probs = probs * mask
-                probs = probs / probs.sum(axis=-1, keepdims=True)
+                probs = probs / probs.sum(dim=-1, keepdim=True)
             
             next_token = torcetti.multinomial(probs, num_samples=1)
         else:
-            next_token = torcetti.argmax(logits, axis=-1, keepdims=True)
-        x = torcetti.cat([x, next_token], axis=1)
+            next_token = torcetti.argmax(logits, dim=-1, keepdim=True)
+        x = torcetti.cat([x, next_token], dim=1)
     return x
 
 def generate(prompt='', num_samples=10, steps=20, do_sample=True):
@@ -72,4 +85,4 @@ def generate(prompt='', num_samples=10, steps=20, do_sample=True):
         print('-'*80)
         print(out)
 
-generate(prompt='Once upon a time', num_samples=3, steps=20)
+generate(prompt='Once upon a time', num_samples=10, steps=20)

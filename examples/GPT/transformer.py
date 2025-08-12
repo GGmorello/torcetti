@@ -13,8 +13,13 @@ class TransformerBlock(Module):
 
         self.ffn = FeedForward(embed_dim, hidden_dim=4*embed_dim)
 
-    def forward(self, x):
-
-        x = x + self.attn(self.ln1(x))
-        x = x + self.ffn(self.ln2(x))
-        return x   
+    def forward(self, x, past_kv=None, use_cache=False):
+        if use_cache:
+            attn_out, new_kv = self.attn(self.ln1(x), past_kv=past_kv, use_cache=True)
+            x = x + attn_out
+            x = x + self.ffn(self.ln2(x))
+            return x, new_kv
+        else:
+            x = x + self.attn(self.ln1(x))
+            x = x + self.ffn(self.ln2(x))
+            return x    
