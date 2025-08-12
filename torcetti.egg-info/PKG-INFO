@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: torcetti
+Version: 0.1.0
+Summary: Add your description here
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: matplotlib>=3.10.3
+Requires-Dist: numpy>=2.3.1
+Requires-Dist: playwright>=1.54.0
+Requires-Dist: torch>=2.7.1
+Requires-Dist: transformers>=4.55.0
+
+
+
+
