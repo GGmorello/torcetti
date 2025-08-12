@@ -445,13 +445,25 @@ def scaled_dot_product_attention(q: Tensor,
     output = attn_weights @ v
 
     return output, attn_weights
+def linear(input, weight, bias=None):
 
+    original_shape = input.shape
+    in_features, out_features = weight.shape
 
+    x_2d = input.reshape(-1, in_features)
+
+    out_2d = x_2d @ weight
+    if bias is not None:
+        out_2d = out_2d + bias
+
+    out = out_2d.reshape(*original_shape[:-1], out_features)
+    return out
 def multi_head_attention(query: Tensor,
                          key:   Tensor,
                          value: Tensor,
                          *,
                          num_heads: int,
+                         num_kv_heads: int = None,
                          head_dim: int,
                          dropout_p: float = 0.0,
                          out_proj: callable,
@@ -459,39 +471,62 @@ def multi_head_attention(query: Tensor,
                          key_padding_mask=None,
                          batch_first: bool = False,
                          training: bool = True):
-    """High-level Multi-Head Attention wrapper."""
+
+    if num_kv_heads is None:
+        num_kv_heads = num_heads
     
-    def _reshape_for_attention(x: Tensor) -> Tensor:
+    heads_per_kv_head = num_heads // num_kv_heads
+    
+    def _reshape_query_for_attention(q: Tensor) -> Tensor:
+        if batch_first:
+            N, L, _ = q.shape
+            q = q.reshape(N, L, num_heads, head_dim)
+            q = q.permute(0, 2, 1, 3)  # [N, H, L, D]
+        else:
+            L, N, _ = q.shape
+            q = q.reshape(L, N, num_heads, head_dim)
+            q = q.permute(1, 2, 0, 3)  # [N, H, L, D]
+        return q
+
+    def _reshape_kv_for_attention(x: Tensor) -> Tensor:
         if batch_first:
             N, L, _ = x.shape
-            x = x.reshape(N, L, num_heads, head_dim)
-            x = x.permute(0, 2, 1, 3)
+            x = x.reshape(N, L, num_kv_heads, head_dim)
+            x = x.permute(0, 2, 1, 3)  # [N, KV_H, L, D]
         else:
             L, N, _ = x.shape
-            x = x.reshape(L, N, num_heads, head_dim)
-            x = x.permute(1, 2, 0, 3)
+            x = x.reshape(L, N, num_kv_heads, head_dim)
+            x = x.permute(1, 2, 0, 3)  # [N, KV_H, L, D]
         return x
 
     def _reshape_back(x: Tensor) -> Tensor:
         N, H, L, D = x.shape
         if batch_first:
-            x = x.permute(0, 2, 1, 3)
+            x = x.permute(0, 2, 1, 3)  # [N, L, H, D]
             x = x.reshape(N, L, H * D)
         else:
-            x = x.permute(2, 0, 1, 3)
+            x = x.permute(2, 0, 1, 3)  # [L, N, H, D]
             x = x.reshape(L, N, H * D)
         return x
 
-    q = _reshape_for_attention(query)
-    k = _reshape_for_attention(key)
-    v = _reshape_for_attention(value)
+    # Reshape tensors
+    q = _reshape_query_for_attention(query)  # [N, H, L_q, D]
+    k = _reshape_kv_for_attention(key)       # [N, KV_H, L_k, D]
+    v = _reshape_kv_for_attention(value)     # [N, KV_H, L_k, D]
 
     B, H, L_q, D = q.shape
-    _, _, L_k, _ = k.shape
+    _, KV_H, L_k, _ = k.shape
     
+    B, KV_H, L_k, D = k.shape
+    
+    # [B, KV_H, L_k, D] -> [B, KV_H, 1, L_k, D] -> [B, KV_H, heads_per_kv_head, L_k, D] -> [B, H, L_k, D]
+    k_expanded = k.unsqueeze(2).repeat(1, 1, heads_per_kv_head, 1, 1).reshape(B, H, L_k, D)
+    v_expanded = v.unsqueeze(2).repeat(1, 1, heads_per_kv_head, 1, 1).reshape(B, H, L_k, D)
+    
+
     q_flat = q.reshape(B * H, L_q, D)
-    k_flat = k.reshape(B * H, L_k, D)
-    v_flat = v.reshape(B * H, L_k, D)
+    k_flat = k_expanded.reshape(B * H, L_k, D)
+    v_flat = v_expanded.reshape(B * H, L_k, D)
 
     attn_out_flat, attn_weights_flat = scaled_dot_product_attention(
         q_flat,
@@ -511,17 +546,3 @@ def multi_head_attention(query: Tensor,
     out = out_proj(out)
 
     return out, attn_weights
-
-def linear(input, weight, bias=None):
-
-    original_shape = input.shape
-    in_features, out_features = weight.shape
-
-    x_2d = input.reshape(-1, in_features)
-
-    out_2d = x_2d @ weight
-    if bias is not None:
-        out_2d = out_2d + bias
-
-    out = out_2d.reshape(*original_shape[:-1], out_features)
-    return out
