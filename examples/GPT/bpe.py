@@ -1,3 +1,7 @@
+"""
+Adapted from Karpathy's minGPT
+"""
+
 import os
 import json
 from typing import Dict, Iterable, List, Optional, Set, Tuple

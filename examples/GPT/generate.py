@@ -1,3 +1,7 @@
+"""
+Adapted from Karpathy's minGPT
+"""
+
 import torcetti
 
 from examples.GPT.hf_compat import HFGPT
