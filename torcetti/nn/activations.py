@@ -30,10 +30,10 @@ class Tanh(Module):
         return F.tanh(x)
 
 class Softmax(Module):
-    def __init__(self, axis=-1):
+    def __init__(self, dim=-1):
         super().__init__()
-        self.axis = axis
+        self.dim = dim
     
     def forward(self, x):
-        return F.softmax(x, axis=self.axis)
+        return F.softmax(x, dim=self.dim)
  

@@ -1,7 +1,8 @@
 import numpy as np
 from torcetti.core.tensor import Tensor
 
-def softmax(input, axis=-1):
+def softmax(input, dim=-1):
+    axis = dim
     max_vals = np.max(input.data, axis=axis, keepdims=True)
     shifted = input.data - max_vals
     exp_vals = np.exp(shifted)
@@ -19,7 +20,8 @@ def softmax(input, axis=-1):
     out._backward = _backward
     return out
 
-def log_softmax(input, axis=-1):
+def log_softmax(input, dim=-1):
+    axis = dim
     max_vals = np.max(input.data, axis=axis, keepdims=True)
     shifted = input.data - max_vals
     log_sum_exp = np.log(np.sum(np.exp(shifted), axis=axis, keepdims=True))
@@ -119,8 +121,8 @@ def dropout(input, p=0.5, training=True):
 
 def batch_norm(input, running_mean, running_var, eps=1e-5, momentum=0.1, training=True):
     if training:
-        batch_mean = input.mean(axis=0)
-        batch_var = input.var(axis=0, ddof=0)
+        batch_mean = input.mean(dim=0)
+        batch_var = input.var(dim=0, ddof=0)
         x_centered = input - batch_mean
         inv_std = 1.0 / np.sqrt(batch_var.data + eps)
         x_norm_data = x_centered.data * inv_std
@@ -390,8 +392,8 @@ def layer_norm(x: Tensor, normalized_shape, weight=None, bias=None, eps: float =
 
     axes = tuple(range(-len(normalized_shape), 0)) if normalized_shape else ()
 
-    mean = x.mean(axis=axes, keepdims=True)
-    var = ((x - mean) ** 2).mean(axis=axes, keepdims=True)
+    mean = x.mean(dim=axes, keepdim=True)
+    var = ((x - mean) ** 2).mean(dim=axes, keepdim=True)
 
     normalized = (x - mean) / (var + eps).sqrt()
 
@@ -435,7 +437,7 @@ def scaled_dot_product_attention(q: Tensor,
         
         attn_scores = Tensor.where(~mask, attn_scores, -1e9)
 
-    attn_weights = softmax(attn_scores, axis=-1)
+    attn_weights = softmax(attn_scores, dim=-1)
 
     if dropout_p > 0.0 and training:
         attn_weights = dropout(attn_weights, p=dropout_p, training=training)

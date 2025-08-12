@@ -7,16 +7,16 @@ def where(condition, x, y):
     return Tensor.where(condition, x, y)
 
 
-def cat(tensors, axis=0):
-    data = np.concatenate([t.data for t in tensors], axis=axis)
+def cat(tensors, dim=0):
+    data = np.concatenate([t.data for t in tensors], axis=dim)
     requires_grad = any(t.requires_grad for t in tensors)
     out = Tensor(data, requires_grad, _children=tensors, _op='concat')
 
     if requires_grad:
         def _backward():
             grad = out.grad.data
-            split_indices = np.cumsum([t.shape[axis] for t in tensors[:-1]])
-            grad_splits = np.split(grad, split_indices, axis=axis)
+            split_indices = np.cumsum([t.shape[dim] for t in tensors[:-1]])
+            grad_splits = np.split(grad, split_indices, axis=dim)
             for t, g in zip(tensors, grad_splits):
                 if t.requires_grad:
                     t.grad += g
@@ -25,14 +25,14 @@ def cat(tensors, axis=0):
     return out
 
 
-def stack(tensors, axis=0):
-    data = np.stack([t.data for t in tensors], axis=axis)
+def stack(tensors, dim=0):
+    data = np.stack([t.data for t in tensors], axis=dim)
     requires_grad = any(t.requires_grad for t in tensors)
     out = Tensor(data, requires_grad, _children=tensors, _op='stack')
 
     if requires_grad:
         def _backward():
-            grad = np.moveaxis(out.grad.data, axis, 0)
+            grad = np.moveaxis(out.grad.data, dim, 0)
             for idx, t in enumerate(tensors):
                 if t.requires_grad:
                     t.grad += grad[idx]
@@ -49,10 +49,14 @@ def meshgrid(*tensors, indexing='ij'):
 concatenate = cat
 
 
-def take(tensor, indices, axis=None):
+def take(tensor, indices, dim=None):
     if not isinstance(tensor, Tensor):
         tensor = Tensor(tensor)
-    return tensor.take(indices, axis=axis)
+    if dim is None:
+        return tensor.take(indices)
+    # Implement torch.take along a dimension is torch.gather-like; our API does not support that.
+    # For now, align with torch.take semantics only when dim is None (flatten). If dim provided, raise.
+    raise NotImplementedError("take: only dim=None (flattened) is supported, matching torch.take")
 
 
 def topk(input, k, dim=-1, largest=True, sorted=True):
@@ -128,39 +132,39 @@ def topk(input, k, dim=-1, largest=True, sorted=True):
     return values_tensor, indices_tensor
 
 
-def sum(input, axis=None, keepdims=False):
+def sum(input, dim=None, keepdim=False):
     x = input if isinstance(input, Tensor) else Tensor(input)
-    return x.sum(axis=axis, keepdims=keepdims)
+    return x.sum(dim=dim, keepdim=keepdim)
 
 
-def mean(input, axis=None, keepdims=False):
+def mean(input, dim=None, keepdim=False):
     x = input if isinstance(input, Tensor) else Tensor(input)
-    return x.mean(axis=axis, keepdims=keepdims)
+    return x.mean(dim=dim, keepdim=keepdim)
 
 
-def max(input, axis=None, keepdims=False):
+def max(input, dim=None, keepdim=False):
     x = input if isinstance(input, Tensor) else Tensor(input)
-    return x.max(axis=axis, keepdims=keepdims)
+    return x.max(dim=dim, keepdim=keepdim)
 
 
-def min(input, axis=None, keepdims=False):
+def min(input, dim=None, keepdim=False):
     x = input if isinstance(input, Tensor) else Tensor(input)
-    return x.min(axis=axis, keepdims=keepdims)
+    return x.min(dim=dim, keepdim=keepdim)
 
 
-def prod(input, axis=None, keepdims=False):
+def prod(input, dim=None, keepdim=False):
     x = input if isinstance(input, Tensor) else Tensor(input)
-    return x.prod(axis=axis, keepdims=keepdims)
+    return x.prod(dim=dim, keepdim=keepdim)
 
 
-def argmax(input, axis=None):
+def argmax(input, dim=None, keepdim=False):
     x = input if isinstance(input, Tensor) else Tensor(input)
-    return x.argmax(axis=axis)
+    return x.argmax(dim=dim, keepdim=keepdim)
 
 
-def argmin(input, axis=None):
+def argmin(input, dim=None, keepdim=False):
     x = input if isinstance(input, Tensor) else Tensor(input)
-    return x.argmin(axis=axis)
+    return x.argmin(dim=dim, keepdim=keepdim)
 
 
 def clamp(input, min=None, max=None):
@@ -203,9 +207,9 @@ def round(input):
     return x.round()
 
 
-def var(input, axis=None, keepdims=False, ddof=0):
+def var(input, dim=None, keepdim=False, ddof=0):
     x = input if isinstance(input, Tensor) else Tensor(input)
-    return x.var(axis=axis, keepdims=keepdims, ddof=ddof)
+    return x.var(dim=dim, keepdim=keepdim, ddof=ddof)
 
 
 def permute(input, *dims):
@@ -218,9 +222,9 @@ def reshape(input, *shape):
     return x.reshape(*shape)
 
 
-def flatten(input, start_dim=0):
+def flatten(input, start_dim=0, end_dim=-1):
     x = input if isinstance(input, Tensor) else Tensor(input)
-    return x.flatten(start_dim=start_dim)
+    return x.flatten(start_dim=start_dim, end_dim=end_dim)
 
 
 def repeat(input, *repeats):

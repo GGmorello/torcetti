@@ -113,7 +113,7 @@ class TestTensorOperations(unittest.TestCase):
     def test_sum(self):
         np.random.seed(42); a_data = np.random.randn(2, 3, 4)
         compare_forward_backward(lambda a: a.sum(), lambda a: a.sum(), [a_data])
-        compare_forward_backward(lambda a: a.sum(axis=1), lambda a: a.sum(axis=1), [a_data])
+        compare_forward_backward(lambda a: a.sum(dim=1), lambda a: a.sum(dim=1), [a_data])
 
     def test_mean(self):
         np.random.seed(42); a_data = np.random.randn(2, 3, 4)
@@ -121,19 +121,19 @@ class TestTensorOperations(unittest.TestCase):
 
     def test_mean_axis_backward_bug(self):
         np.random.seed(42); a_data = np.random.randn(2, 3, 4)
-        compare_forward_backward(lambda a: a.mean(axis=1), lambda a: a.mean(axis=1), [a_data])
-        compare_forward_backward(lambda a: a.mean(axis=0), lambda a: a.mean(axis=0), [a_data])
-        compare_forward_backward(lambda a: a.mean(axis=2), lambda a: a.mean(axis=2), [a_data])
+        compare_forward_backward(lambda a: a.mean(dim=1), lambda a: a.mean(dim=1), [a_data])
+        compare_forward_backward(lambda a: a.mean(dim=0), lambda a: a.mean(dim=0), [a_data])
+        compare_forward_backward(lambda a: a.mean(dim=2), lambda a: a.mean(dim=2), [a_data])
 
     def test_mean_axis_keepdims(self):
         np.random.seed(42); a_data = np.random.randn(2, 3, 4)
-        compare_forward_backward(lambda a: a.mean(axis=1, keepdims=True), lambda a: a.mean(axis=1, keepdims=True), [a_data])
-        compare_forward_backward(lambda a: a.mean(axis=0, keepdims=True), lambda a: a.mean(axis=0, keepdims=True), [a_data])
-        compare_forward_backward(lambda a: a.mean(axis=-1, keepdims=False), lambda a: a.mean(axis=-1, keepdims=False), [a_data])
+        compare_forward_backward(lambda a: a.mean(dim=1, keepdim=True), lambda a: a.mean(dim=1, keepdim=True), [a_data])
+        compare_forward_backward(lambda a: a.mean(dim=0, keepdim=True), lambda a: a.mean(dim=0, keepdim=True), [a_data])
+        compare_forward_backward(lambda a: a.mean(dim=-1, keepdim=False), lambda a: a.mean(dim=-1, keepdim=False), [a_data])
 
     def test_max(self):
         np.random.seed(42); a_data = np.random.randn(2, 3, 4)
-        compare_forward_backward(lambda a: a.max(axis=1), lambda a: a.max(axis=1)[0], [a_data])
+        compare_forward_backward(lambda a: a.max(dim=1), lambda a: a.max(dim=1)[0], [a_data])
 
     def test_exp(self):
         np.random.seed(42); a_data = np.random.randn(2, 3) * 0.1
@@ -199,12 +199,12 @@ class TestTensorConcat(unittest.TestCase):
     def test_concat_dim0(self):
         np.random.seed(42)
         a_data = np.random.randn(2, 3); b_data = np.random.randn(4, 3)
-        compare_forward_backward(lambda a, b: torcetti.cat([a, b], axis=0), lambda a, b: torch.cat([a, b], dim=0), [a_data, b_data])
+        compare_forward_backward(lambda a, b: torcetti.cat([a, b], dim=0), lambda a, b: torch.cat([a, b], dim=0), [a_data, b_data])
 
     def test_concat_dim1(self):
         np.random.seed(42)
         a_data = np.random.randn(2, 3); b_data = np.random.randn(2, 4)
-        compare_forward_backward(lambda a, b: torcetti.cat([a, b], axis=1), lambda a, b: torch.cat([a, b], dim=1), [a_data, b_data])
+        compare_forward_backward(lambda a, b: torcetti.cat([a, b], dim=1), lambda a, b: torch.cat([a, b], dim=1), [a_data, b_data])
 
 
 class TestTensorSliceBackward(unittest.TestCase):
@@ -231,17 +231,17 @@ class TestTensorConcatEdgeCases(unittest.TestCase):
     def test_concat_multiple_tensors(self):
         np.random.seed(3)
         a, b, c = (np.random.randn(1, 4), np.random.randn(2, 4), np.random.randn(3, 4))
-        compare_forward_backward(lambda x, y, z: torcetti.cat([x, y, z], axis=0), lambda x, y, z: torch.cat([x, y, z], dim=0), [a, b, c])
+        compare_forward_backward(lambda x, y, z: torcetti.cat([x, y, z], dim=0), lambda x, y, z: torch.cat([x, y, z], dim=0), [a, b, c])
 
     def test_concat_negative_axis(self):
         np.random.seed(4); a_data = np.random.randn(2, 3); b_data = np.random.randn(2, 2)
-        compare_forward_backward(lambda a, b: torcetti.cat([a, b], axis=-1), lambda a, b: torch.cat([a, b], dim=-1), [a_data, b_data])
+        compare_forward_backward(lambda a, b: torcetti.cat([a, b], dim=-1), lambda a, b: torch.cat([a, b], dim=-1), [a_data, b_data])
 
     def test_concat_shape_mismatch_error(self):
         a_data = np.random.randn(2, 3); b_data = np.random.randn(3, 3)
         a = Tensor(a_data); b = Tensor(b_data)
         with self.assertRaises(Exception):
-            torcetti.cat([a, b], axis=1)
+            torcetti.cat([a, b], dim=1)
 
 
 class TestTensorSliceEdgeCases(unittest.TestCase):

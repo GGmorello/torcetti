@@ -37,15 +37,15 @@ class BatchNorm1d(Module):
                 running_mean = self.running_mean
                 running_var = self.running_var
             else:
-                running_mean = input.mean(axis=0)
-                running_var = input.var(axis=0, ddof=0)
+                running_mean = input.mean(dim=0)
+                running_var = input.var(dim=0, ddof=0)
         else:
             if self.track_running_stats:
                 running_mean = self.running_mean
                 running_var = self.running_var
             else:
-                running_mean = input.mean(axis=0)
-                running_var = input.var(axis=0, ddof=0)
+                running_mean = input.mean(dim=0)
+                running_var = input.var(dim=0, ddof=0)
         
         output = F.batch_norm(
             input,

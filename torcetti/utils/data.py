@@ -52,7 +52,7 @@ class DataLoader:
             return self.collate_fn(samples)
         else:
             from torcetti.core.ops import stack
-            return stack(samples, axis=0) 
+            return stack(samples, dim=0) 
 
     def __len__(self):
         if self.drop_last:
@@ -67,7 +67,7 @@ class DataLoader:
         first = samples[0]
 
         if isinstance(first, Tensor):
-            return stack(samples, axis=0)
+            return stack(samples, dim=0)
 
         if isinstance(first, np.ndarray):
             data = np.stack(samples, axis=0)

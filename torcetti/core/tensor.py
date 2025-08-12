@@ -253,7 +253,9 @@ class Tensor:
         return out
 
 
-    def mean(self, axis=None, keepdims=False):
+    def mean(self, dim=None, keepdim=False):
+        axis = dim
+        keepdims = keepdim
         out = Tensor(np.mean(self.data, axis=axis, keepdims=keepdims), self.requires_grad, _children=(self,), _op='mean')
         def _backward():
             if axis is None:
@@ -283,7 +285,9 @@ class Tensor:
         out._backward = _backward
         return out
 
-    def sum(self, axis=None, keepdims=False):
+    def sum(self, dim=None, keepdim=False):
+        axis = dim
+        keepdims = keepdim
         out = Tensor(np.sum(self.data, axis=axis, keepdims=keepdims), self.requires_grad, _children=(self,), _op='sum')
         def _backward():
             grad = out.grad.data
@@ -293,7 +297,9 @@ class Tensor:
         out._backward = _backward
         return out
     
-    def max(self, axis=None, keepdims=False):
+    def max(self, dim=None, keepdim=False):
+        axis = dim
+        keepdims = keepdim
         out_data = np.max(self.data, axis=axis, keepdims=keepdims)
         out = Tensor(out_data, self.requires_grad, _children=(self,), _op='max')
         def _backward():
@@ -309,7 +315,9 @@ class Tensor:
         out._backward = _backward
         return out
 
-    def min(self, axis=None, keepdims=False):
+    def min(self, dim=None, keepdim=False):
+        axis = dim
+        keepdims = keepdim
         out_data = np.min(self.data, axis=axis, keepdims=keepdims)
         out = Tensor(out_data, self.requires_grad, _children=(self,), _op='min')
 
@@ -327,7 +335,9 @@ class Tensor:
         out._backward = _backward
         return out
 
-    def prod(self, axis=None, keepdims=False):
+    def prod(self, dim=None, keepdim=False):
+        axis = dim
+        keepdims = keepdim
         out_data = np.prod(self.data, axis=axis, keepdims=keepdims)
         out = Tensor(out_data, self.requires_grad, _children=(self,), _op='prod')
 
@@ -351,12 +361,18 @@ class Tensor:
         out._backward = _backward
         return out
 
-    def argmax(self, axis=None):
+    def argmax(self, dim=None, keepdim=False):
+        axis = dim
         idx = np.argmax(self.data, axis=axis)
+        if keepdim and axis is not None:
+            idx = np.expand_dims(idx, axis=axis)
         return Tensor(idx, requires_grad=False, dtype=np.int64)
 
-    def argmin(self, axis=None):
+    def argmin(self, dim=None, keepdim=False):
+        axis = dim
         idx = np.argmin(self.data, axis=axis)
+        if keepdim and axis is not None:
+            idx = np.expand_dims(idx, axis=axis)
         return Tensor(idx, requires_grad=False, dtype=np.int64)
 
     def exp(self):
@@ -458,7 +474,9 @@ class Tensor:
         out._backward = _backward
         return out
 
-    def var(self, axis=None, keepdims=False, ddof=0):
+    def var(self, dim=None, keepdim=False, ddof=0):
+        axis = dim
+        keepdims = keepdim
         out = Tensor(np.var(self.data, axis=axis, keepdims=keepdims, ddof=ddof), self.requires_grad, _children=(self,), _op='var')
         def _backward():
             if axis is None:
@@ -621,11 +639,21 @@ class Tensor:
         """Alias for reshape."""
         return self.reshape(*shape)
 
-    def flatten(self, start_dim=0):
+    def flatten(self, start_dim=0, end_dim=-1):
         original_shape = self.data.shape
-        if start_dim >= len(original_shape):
+        rank = len(original_shape)
+        if rank == 0:
             return self
-        new_shape = original_shape[:start_dim] + (-1,)
+        if start_dim < 0:
+            start_dim = rank + start_dim
+        if end_dim < 0:
+            end_dim = rank + end_dim
+        if start_dim >= rank:
+            return self
+        if end_dim < start_dim:
+            # Match torch behavior: if end_dim < start_dim, no-op
+            return self
+        new_shape = original_shape[:start_dim] + (-1,) + original_shape[end_dim+1:]
         return self.reshape(*new_shape)
 
 
@@ -728,7 +756,7 @@ class Tensor:
         out._backward = _backward
         return out
 
-    def take(self, indices, axis=None):
+    def take(self, indices):
 
         if hasattr(indices, 'data'):
             indices_array = indices.data
@@ -737,17 +765,14 @@ class Tensor:
             
         indices_array = indices_array.astype(np.int64)
             
-        out_data = np.take(self.data, indices_array, axis=axis)
+        out_data = np.take(self.data, indices_array)  # flatten semantics
         out = Tensor(out_data, self.requires_grad, _children=(self,), _op='take')
         
         def _backward():
             grad_for_self = np.zeros_like(self.data)
-            if axis is None:
-                flat_grad = np.zeros(self.data.size, dtype=self.data.dtype)
-                np.add.at(flat_grad, indices_array, out.grad.data.ravel())
-                grad_for_self = flat_grad.reshape(self.data.shape)
-            else:
-                np.add.at(grad_for_self, (slice(None),) * axis + (indices_array,), out.grad.data)
+            flat_grad = np.zeros(self.data.size, dtype=self.data.dtype)
+            np.add.at(flat_grad, indices_array, out.grad.data.ravel())
+            grad_for_self = flat_grad.reshape(self.data.shape)
             self.grad += grad_for_self
             
         out._backward = _backward

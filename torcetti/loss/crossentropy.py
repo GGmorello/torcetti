@@ -10,7 +10,7 @@ class CrossEntropyLoss(Module):
         batch_size = predictions.shape[0]
         num_classes = predictions.shape[1]
         
-        log_probs_tensor = F.log_softmax(predictions, axis=1)
+        log_probs_tensor = F.log_softmax(predictions, dim=1)
         
         targets_indices = targets.data.astype(int)
         

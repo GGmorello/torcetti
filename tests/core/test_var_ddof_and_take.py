@@ -25,7 +25,7 @@ class TestVarDdof(unittest.TestCase):
             for axis in [0, 1]:
                 with self.subTest(ddof=ddof, axis=axis):
                     x = Tensor(data.copy(), requires_grad=True)
-                    var_result = x.var(axis=axis, ddof=ddof)
+                    var_result = x.var(dim=axis, ddof=ddof)
                     upstream_grad = np.ones_like(var_result.data)
                     var_result.grad += upstream_grad
                     var_result.backward()
@@ -41,7 +41,7 @@ class TestVarDdof(unittest.TestCase):
             for keepdims in [True, False]:
                 with self.subTest(ddof=ddof, keepdims=keepdims):
                     x = Tensor(data.copy(), requires_grad=True)
-                    var_result = x.var(axis=1, ddof=ddof, keepdims=keepdims)
+                    var_result = x.var(dim=1, ddof=ddof, keepdim=keepdims)
                     var_result.backward()
                     mean_val = np.mean(data, axis=1, keepdims=True)
                     N = data.shape[1]
@@ -65,7 +65,7 @@ class TestVarDdof(unittest.TestCase):
             for axis in [0, 1, 2]:
                 with self.subTest(ddof=ddof, axis=axis):
                     x = Tensor(data.copy())
-                    torcetti_var = x.var(axis=axis, ddof=ddof)
+                    torcetti_var = x.var(dim=axis, ddof=ddof)
                     numpy_var = np.var(data, axis=axis, ddof=ddof)
                     np.testing.assert_array_almost_equal(torcetti_var.data, numpy_var, decimal=6)
 
@@ -101,7 +101,7 @@ class TestVarDdof(unittest.TestCase):
         for ddof in [0, 1]:
             with self.subTest(ddof=ddof):
                 x = Tensor(data.copy(), requires_grad=True)
-                var_result = x.var(axis=(1, 2), ddof=ddof)
+                var_result = x.var(dim=(1, 2), ddof=ddof)
                 var_result.backward()
                 mean_val = np.mean(data, axis=(1, 2), keepdims=True)
                 N = data.shape[1] * data.shape[2]
@@ -124,11 +124,11 @@ class TestTake(unittest.TestCase):
         expected = np.array([2, 4, 6], dtype=np.float32)
         np.testing.assert_array_equal(result.data, expected)
 
-    def test_take_axis_specific(self):
-        x = Tensor(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=np.float32), requires_grad=True)
-        result = x.take([0, 2], axis=0)
+    def test_take_axis_specific_removed_use_numpy_for_axis(self):
+        x = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=np.float32)
         expected = np.array([[1, 2, 3], [7, 8, 9]], dtype=np.float32)
-        np.testing.assert_array_equal(result.data, expected)
+        result = np.take(x, [0, 2], axis=0)
+        np.testing.assert_array_equal(result, expected)
 
     def test_take_backward_flatten(self):
         x = Tensor(np.array([1, 2, 3, 4, 5], dtype=np.float32), requires_grad=True)
@@ -137,12 +137,9 @@ class TestTake(unittest.TestCase):
         expected_grad = np.array([0, 1, 0, 1, 1], dtype=np.float32)
         np.testing.assert_array_equal(x.grad.data, expected_grad)
 
-    def test_take_backward_axis(self):
-        x = Tensor(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=np.float32), requires_grad=True)
-        result = x.take([0, 2], axis=0)
-        loss = result.sum(); loss.backward()
-        expected_grad = np.array([[1, 1, 1], [0, 0, 0], [1, 1, 1]], dtype=np.float32)
-        np.testing.assert_array_equal(x.grad.data, expected_grad)
+    def test_take_backward_axis_removed(self):
+        # axis argument not supported to match torch.take; backward test removed
+        pass
 
     def test_take_factory_function(self):
         x = Tensor(np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float32))

@@ -53,25 +53,25 @@ class TestActivationFunctions(unittest.TestCase):
 
     def test_softmax(self):
         np.random.seed(42); input_data = np.random.randn(2, 3)
-        torcetti_fn = lambda x: torcetti.nn.functional.softmax(x, axis=1)
+        torcetti_fn = lambda x: torcetti.nn.functional.softmax(x, dim=1)
         torch_fn = lambda x: torch.nn.functional.softmax(x, dim=1)
         compare_forward_backward(torcetti_fn, torch_fn, [input_data])
-        torcetti_softmax = torcetti.nn.Softmax(axis=1); torch_softmax = nn.Softmax(dim=1)
+        torcetti_softmax = torcetti.nn.Softmax(dim=1); torch_softmax = nn.Softmax(dim=1)
         torcetti_fn = lambda x: torcetti_softmax(x); torch_fn = lambda x: torch_softmax(x)
         compare_forward_backward(torcetti_fn, torch_fn, [input_data])
 
     def test_softmax_different_axes(self):
         np.random.seed(42); input_data = np.random.randn(2, 3, 4)
-        torcetti_fn = lambda x: torcetti.nn.functional.softmax(x, axis=0)
+        torcetti_fn = lambda x: torcetti.nn.functional.softmax(x, dim=0)
         torch_fn = lambda x: torch.nn.functional.softmax(x, dim=0)
         compare_forward_backward(torcetti_fn, torch_fn, [input_data])
-        torcetti_fn = lambda x: torcetti.nn.functional.softmax(x, axis=2)
+        torcetti_fn = lambda x: torcetti.nn.functional.softmax(x, dim=2)
         torch_fn = lambda x: torch.nn.functional.softmax(x, dim=2)
         compare_forward_backward(torcetti_fn, torch_fn, [input_data])
 
     def test_log_softmax(self):
         np.random.seed(42); input_data = np.random.randn(2, 3)
-        torcetti_fn = lambda x: torcetti.nn.functional.log_softmax(x, axis=1)
+        torcetti_fn = lambda x: torcetti.nn.functional.log_softmax(x, dim=1)
         torch_fn = lambda x: torch.nn.functional.log_softmax(x, dim=1)
         compare_forward_backward(torcetti_fn, torch_fn, [input_data])
 
@@ -87,7 +87,7 @@ class TestActivationFunctions(unittest.TestCase):
         tanh_output = torcetti.nn.functional.tanh(torcetti_tensor)
         self.assertTrue(np.all(tanh_output.data > -1)); self.assertTrue(np.all(tanh_output.data < 1))
         softmax_input = Tensor(input_data.reshape(10, 10))
-        softmax_output = torcetti.nn.functional.softmax(softmax_input, axis=1)
+        softmax_output = torcetti.nn.functional.softmax(softmax_input, dim=1)
         row_sums = np.sum(softmax_output.data, axis=1)
         np.testing.assert_allclose(row_sums, np.ones(10), rtol=1e-6)
         self.assertTrue(np.all(softmax_output.data > 0))

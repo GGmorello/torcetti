@@ -2,10 +2,11 @@ from torcetti.nn.module import Module
 from torcetti.core.parameter import Parameter
 from torcetti.core.factories import ones, zeros
 from . import functional as F
+from typing import Optional
 
 
 class LayerNorm(Module):
-    def __init__(self, normalized_shape, eps: float = 1e-5, *, elementwise_affine: bool = True, weight: bool | None = True, bias: bool | None = True):
+    def __init__(self, normalized_shape, eps: float = 1e-5, *, elementwise_affine: bool = True, weight: Optional[bool] = True, bias: Optional[bool] = True):
         """See class docstring for details."""
         super().__init__()
 
