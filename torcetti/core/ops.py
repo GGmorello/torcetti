@@ -192,6 +192,16 @@ def sqrt(input):
     return x.sqrt()
 
 
+def sin(input):
+    x = input if isinstance(input, Tensor) else Tensor(input)
+    return x.sin()
+
+
+def cos(input):
+    x = input if isinstance(input, Tensor) else Tensor(input)
+    return x.cos()
+
+
 def floor(input):
     x = input if isinstance(input, Tensor) else Tensor(input)
     return x.floor()
