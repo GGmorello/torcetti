@@ -2,6 +2,7 @@ from typing import Literal
 import numpy as np
 from torcetti.core import tensor
 from torcetti.core.tensor import Tensor
+import torcetti
 
 def softmax(input, dim=-1):
     axis = dim
@@ -528,7 +529,6 @@ def multi_head_attention(query: Tensor,
     v = _reshape_kv_for_attention(value)     # [N, KV_H, L_k, D]
 
     B, H, L_q, D = q.shape
-    _, KV_H, L_k, _ = k.shape
     
     B, KV_H, L_k, D = k.shape
     
@@ -560,3 +560,121 @@ def multi_head_attention(query: Tensor,
     out = out_proj(out)
 
     return out, attn_weights
+
+
+def create_window_mask(seq_len: int, window_size: int, causal: bool = True) -> Tensor:
+    """
+    Creates a window mask for local attention.
+    
+    Args:
+        seq_len: Length of the sequence  
+        window_size: Size of the attention window
+        causal: If True, only attend to previous tokens; if False, bidirectional
+    
+    Returns:
+        Additive Tensor of shape [seq_len, seq_len] where 0.0 means "attend" and -1e9 means "mask"
+    """
+    row_idx = torcetti.arange(seq_len).unsqueeze(1)
+    col_idx = torcetti.arange(seq_len).unsqueeze(0)
+    
+    if causal:
+        # For causal: attend to current position and (window_size-1) previous positions
+        mask = (col_idx <= row_idx) & (col_idx >= row_idx - window_size + 1)
+    else:
+        # For bidirectional: vectorized implementation
+        half_window = window_size // 2
+        
+        # For each row i, compute optimal start position with boundary handling
+        # start_pos[i] = max(0, min(i - half_window, seq_len - window_size))
+        ideal_starts = row_idx - half_window  # [seq_len, 1]
+        
+        # Clamp start positions to valid range [0, seq_len - window_size]
+        start_pos = Tensor.where(
+            ideal_starts < 0, 
+            torcetti.tensor(0),
+            Tensor.where(
+                ideal_starts > seq_len - window_size,
+                torcetti.tensor(max(0, seq_len - window_size)),
+                ideal_starts
+            )
+        )
+        
+        # Create mask: attend to [start_pos, start_pos + window_size)
+        mask = (col_idx >= start_pos) & (col_idx < start_pos + window_size)
+    
+    mask_values = torcetti.where(mask, torcetti.tensor(0.0), torcetti.tensor(-1e9))
+    return mask_values
+
+def build_rope_cache(max_seq_len: int, head_dim: int, base: float = 10000.0):
+
+    
+    assert head_dim % 2 == 0, "head_dim must be even for RoPE"
+    half = head_dim // 2
+    
+    # Create position indices [0, 1, 2, ..., max_seq_len-1]
+    pos = torcetti.arange(max_seq_len, dtype=np.float32)  # [L]
+    
+    # Create inverse frequencies: base^(-j/half) for j in [0, 1, ..., half-1]
+    # Compute this in numpy first, then convert to tensor
+    j_values = np.arange(half, dtype=np.float32)
+    inv_freq_numpy = base ** (-j_values / half)
+    inv_freq = Tensor(inv_freq_numpy, requires_grad=False)  # [D/2]
+    
+    # Compute outer product: angles[l, j] = pos[l] * inv_freq[j]
+    angles = pos.unsqueeze(1) @ inv_freq.unsqueeze(0)  # [L, D/2]
+    
+    # Compute cos and sin
+    cos_half = angles.cos()  # [L, D/2]
+    sin_half = angles.sin()  # [L, D/2]
+    
+    # Repeat each element along the last dimension to get [L, D]
+    # This ensures cos[l, 2j] = cos[l, 2j+1] and sin[l, 2j] = sin[l, 2j+1]
+    # We need to interleave: [a, b, c, d] -> [a, a, b, b, c, c, d, d]
+    cos_full = torcetti.stack([cos_half, cos_half], dim=-1).reshape(max_seq_len, head_dim)
+    sin_full = torcetti.stack([sin_half, sin_half], dim=-1).reshape(max_seq_len, head_dim)
+    
+    return cos_full, sin_full
+
+
+def apply_rotary_pos_emb(x: Tensor, cos: Tensor, sin: Tensor, position_ids: Tensor) -> Tensor:
+    from torcetti.core.tensor import Tensor
+    import torcetti
+    
+    B, H, L, D = x.shape
+    
+    # Handle position_ids broadcasting and convert to numpy for indexing
+    if position_ids.data.ndim == 1:
+        # [L] -> [B, L]
+        pos_indices = np.broadcast_to(position_ids.data.reshape(1, L), (B, L)).astype(np.int64)
+    else:
+        pos_indices = position_ids.data.astype(np.int64)  # [B, L]
+    
+    # Gather cos/sin for each position using numpy indexing
+    cos_g_data = cos.data[pos_indices]  # [B, L, D] 
+    sin_g_data = sin.data[pos_indices]  # [B, L, D]
+    
+    cos_g = Tensor(cos_g_data, requires_grad=False)
+    sin_g = Tensor(sin_g_data, requires_grad=False)
+    
+    # Add head dimension: [B, L, D] -> [B, 1, L, D]
+    cos_g = cos_g.unsqueeze(1)
+    sin_g = sin_g.unsqueeze(1)
+    
+    # Split x into even/odd pairs
+    x_pairs = x.reshape(B, H, L, D//2, 2)
+    x_even = x_pairs[..., 0]  # [B, H, L, D//2]
+    x_odd = x_pairs[..., 1]   # [B, H, L, D//2]
+    
+    # Get cos/sin for just the even positions (since they're repeated)
+    c = cos_g[..., 0::2]  # [B, 1, L, D//2]
+    s = sin_g[..., 0::2]  # [B, 1, L, D//2]
+    
+    # Apply rotation
+    rot_even = x_even * c - x_odd * s
+    rot_odd = x_odd * c + x_even * s
+    
+    # Recombine even/odd pairs
+    rot_pairs = torcetti.stack([rot_even, rot_odd], dim=-1)  # [B, H, L, D//2, 2]
+    result = rot_pairs.reshape(B, H, L, D)
+    
+    return result

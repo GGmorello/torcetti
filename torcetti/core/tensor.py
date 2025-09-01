@@ -396,6 +396,20 @@ class Tensor:
         out._backward = _backward
         return out
 
+    def sin(self):
+        out = Tensor(np.sin(self.data), self.requires_grad, _children=(self,), _op='sin')
+        def _backward():
+            self.grad += np.cos(self.data) * out.grad.data
+        out._backward = _backward
+        return out
+
+    def cos(self):
+        out = Tensor(np.cos(self.data), self.requires_grad, _children=(self,), _op='cos')
+        def _backward():
+            self.grad += -np.sin(self.data) * out.grad.data
+        out._backward = _backward
+        return out
+
     # ---------- Element-wise operations ----------
 
     def abs(self):
@@ -597,6 +611,56 @@ class Tensor:
                 self.grad += _unbroadcast(other_over_b2, self.data.shape)
         out._backward = _backward
         return out
+
+    
+    def __le__(self, other):
+        other = Tensor._to_tensor(other)
+        out_data = self.data <= other.data
+        return Tensor(out_data, requires_grad=False, dtype=bool, _children=(), _op='<=')
+    
+    def __lt__(self, other):
+        other = Tensor._to_tensor(other)
+        out_data = self.data < other.data
+        return Tensor(out_data, requires_grad=False, dtype=bool, _children=(), _op='<')
+    
+    def __gt__(self, other):
+        other = Tensor._to_tensor(other)
+        out_data = self.data > other.data
+        return Tensor(out_data, requires_grad=False, dtype=bool, _children=(), _op='>')
+    
+    def __ge__(self, other):
+        other = Tensor._to_tensor(other)
+        out_data = self.data >= other.data
+        return Tensor(out_data, requires_grad=False, dtype=bool, _children=(), _op='>=')
+    
+    def __eq__(self, other):
+        other = Tensor._to_tensor(other)
+        out_data = self.data == other.data
+        return Tensor(out_data, requires_grad=False, dtype=bool, _children=(), _op='==')
+    
+    def __ne__(self, other):
+        other = Tensor._to_tensor(other)
+        out_data = self.data != other.data
+        return Tensor(out_data, requires_grad=False, dtype=bool, _children=(), _op='!=')
+        
+    def __and__(self, other):
+        if not isinstance(other, Tensor):
+            other = Tensor(other)
+        if self.data.dtype != bool or other.data.dtype != bool:
+            raise TypeError("Logical AND (&) is only supported for boolean tensors")
+        out_data = self.data & other.data
+        return Tensor(out_data, requires_grad=False, dtype=bool, _children=(), _op='&')
+    
+    def __or__(self, other):
+        if not isinstance(other, Tensor):
+            other = Tensor(other)
+        if self.data.dtype != bool or other.data.dtype != bool:
+            raise TypeError("Logical OR (|) is only supported for boolean tensors")
+        out_data = self.data | other.data
+        return Tensor(out_data, requires_grad=False, dtype=bool, _children=(), _op='|')
+
+    def __hash__(self):
+        return id(self)
 
     def __repr__(self):
         return f"Tensor(data={self.data}, requires_grad={self.requires_grad}, grad={self.grad})"
