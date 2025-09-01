@@ -100,12 +100,12 @@ def rand_like(tensor_like, *, dtype=None, requires_grad=False):
     return Tensor(data, requires_grad=requires_grad)
 
 
-def randn(shape, *, dtype=None, requires_grad=False):
-    if isinstance(shape, int):
-        shape = (shape,)
+def randn(*size, dtype=None, requires_grad=False):
+    if len(size) == 1 and isinstance(size[0], (tuple, list)):
+        size = size[0]
     if dtype is None:
         dtype = get_default_dtype()
-    data = np.random.randn(*shape).astype(dtype)
+    data = np.random.randn(*size).astype(dtype)
     data = data - data.mean()
     return Tensor(data, requires_grad=requires_grad)
 
