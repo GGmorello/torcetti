@@ -660,7 +660,7 @@ class Tensor:
         return Tensor(out_data, requires_grad=False, dtype=bool, _children=(), _op='|')
 
     def __hash__(self):
-        return id(self)
+        return object.__hash__(self)
 
     def __repr__(self):
         return f"Tensor(data={self.data}, requires_grad={self.requires_grad}, grad={self.grad})"
