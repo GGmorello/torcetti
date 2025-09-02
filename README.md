@@ -32,8 +32,15 @@ An educational, NumPy-based re-implementation of a subset of PyTorch. Torcetti f
   - Base: `Module`, parameter registration, `train/eval`, `zero_grad`, `state_dict`/`load_state_dict`, containers (`Sequential`, `ModuleList`, `ModuleDict`)
   - Layers: `Linear`, `Embedding`, `Conv2d`, `BatchNorm1d`, `LayerNorm`, `Dropout`, `MaxPool2d`, `AvgPool2d`
   - Activations: `ReLU`, `Sigmoid`, `Tanh`, `GELU`, `Softmax`
-  - Attention: `MultiheadAttention` (supports MHA, GQA, MQA), functional `scaled_dot_product_attention`, `multi_head_attention`, QK normalization options (`l2`, `rms`)
-  - Rotary positional embeddings: `build_rope_cache`, `apply_rotary_pos_emb`
+  - Attention: `MultiheadAttention`; functional `scaled_dot_product_attention`, `multi_head_attention`
+  - Transformer components:
+    - QK normalization (`l2`, `rms`)
+    - Prefill/decode disaggregation
+    - Multi-Query Attention (MQA)
+    - Grouped-Query Attention (GQA)
+    - Rotary Positional Embeddings (RoPE) via `build_rope_cache`, `apply_rotary_pos_emb`
+    - Key/Value cache (KV cache)
+    - Windowed attention
 
 - Losses
   - Mean Squared Error: `MSE`
